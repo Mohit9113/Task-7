@@ -1,0 +1,115 @@
+import sqlite3
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# --- Database and Data Setup ---
+DB_NAME = "sales_data.db"
+sales_records = [
+    ('Laptop', 5, 1200.00),
+    ('Mouse', 20, 25.00),
+    ('Keyboard', 15, 75.00),
+    ('Laptop', 3, 1200.00),
+    ('Monitor', 10, 300.00),
+    ('Mouse', 5, 25.00),
+]
+
+print(f"Connecting to database: {DB_NAME}")
+conn = sqlite3.connect(DB_NAME)
+cursor = conn.cursor()
+
+# Create table and insert data
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS sales (
+    id INTEGER PRIMARY KEY,
+    product TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    price REAL NOT NULL
+);
+""")
+conn.commit()
+
+# Clear and insert sample data
+print("Inserting sample sales data...")
+cursor.execute("DELETE FROM sales") 
+conn.commit() 
+cursor.executemany("INSERT INTO sales (product, quantity, price) VALUES (?, ?, ?)", sales_records)
+conn.commit()
+print(f"Successfully inserted {len(sales_records)} records.")
+
+# --- SQL Query and Data Retrieval ---
+SQL_QUERY = """
+SELECT 
+    product, 
+    SUM(quantity) AS total_qty_sold, 
+    SUM(quantity * price) AS total_revenue
+FROM 
+    sales
+GROUP BY 
+    product
+ORDER BY 
+    total_revenue DESC;
+"""
+
+print("\n--- Running SQL Query to Summarize Sales ---")
+# Load query results directly into a pandas DataFrame
+df_sales_summary = pd.read_sql_query(SQL_QUERY, conn)
+
+# Close the database connection
+conn.close()
+print("Database connection closed.")
+
+# --- Output: Print Summary ---
+print("\n--- Sales Summary Table (Pandas DataFrame) ---")
+print(df_sales_summary.to_string(index=False))
+
+total_revenue_overall = df_sales_summary['total_revenue'].sum()
+print(f"\nOverall Total Revenue: ${total_revenue_overall:,.2f}")
+
+
+# --- Output: Matplotlib Bar Chart ---
+print("\n--- Generating Bar Chart ---")
+plt.figure(figsize=(10, 6))
+df_sales_summary.plot(
+    kind='bar', 
+    x='product', 
+    y='total_revenue', 
+    legend=False, 
+    ax=plt.gca(),
+    color='#1f77b4'  # A standard blue color
+)
+
+# Chart labels and styling
+plt.title('Total Revenue by Product', fontsize=16)
+plt.xlabel('Product', fontsize=12)
+plt.ylabel('Total Revenue ($)', fontsize=12)
+plt.xticks(rotation=45, ha='right')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.tight_layout()
+
+# Display the chart (will pop up in a separate window or display in a notebook)
+plt.show() 
+# You can uncomment the line below to save the chart as a PNG file:
+# plt.savefig("sales_chart.png")
+print("Bar chart displayed (and saved if 'plt.savefig' was uncommented).")
+
+
+
+OUTPUT:
+
+Connecting to database: sales_data.db
+Inserting sample sales data...
+Successfully inserted 6 records.
+
+--- Running SQL Query to Summarize Sales ---
+Database connection closed.
+
+--- Sales Summary Table (Pandas DataFrame) ---
+ product  total_qty_sold  total_revenue
+  Laptop               8         9600.0
+ Monitor              10         3000.0
+Keyboard              15         1125.0
+   Mouse              25          625.0
+
+Overall Total Revenue: $14,350.00
+
+--- Generating Bar Chart ---
